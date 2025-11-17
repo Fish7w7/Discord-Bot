@@ -1,4 +1,4 @@
-// bot/index.js - Bot com Sistema de IA v3.0
+// bot/index.js - Bot com Presets de Voz
 require('dotenv').config();
 const { Client, GatewayIntentBits, ActivityType } = require('discord.js');
 const { 
@@ -12,8 +12,8 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const config = require('../bot.config');
-const ttsManager = require('./tts');
-const aiHandler = require('./gemini-handler');  // ⭐ Gemini API MELHORADO
+const voicePresets = require('./voice-presets');  // ⭐ NOVO
+const aiHandler = require('./gemini-handler');
 
 const TOKEN = process.env.DISCORD_BOT_TOKEN;
 const PORT = process.env.DASHBOARD_PORT || 3001;
@@ -52,7 +52,8 @@ let state = {
     messagesSent: 0,
     reactionsAdded: 0,
     voiceJoins: 0,
-    aiResponsesGenerated: 0  // ⭐ NOVO
+    aiResponsesGenerated: 0,
+    audioPresetsPlayed: 0  // ⭐ NOVO
   }
 };
 
@@ -111,7 +112,6 @@ async function handleIntelligentResponse(message) {
   try {
     const content = message.content.toLowerCase();
     
-    // 1. Decide se deve responder
     const shouldRespond = decideShouldRespond(message, content);
     if (!shouldRespond) {
       console.log('🤔 Decidiu não responder desta vez');
@@ -120,20 +120,17 @@ async function handleIntelligentResponse(message) {
 
     console.log('💬 Decidiu responder!');
 
-    // 2. Gera resposta usando IA
     let response;
     
     if (config.aiSystem.enabled) {
       response = await aiHandler.generateResponse(message);
       state.stats.aiResponsesGenerated++;
     } else {
-      // Fallback se IA desabilitada
       response = config.aiSystem.fallbackResponses[
         Math.floor(Math.random() * config.aiSystem.fallbackResponses.length)
       ];
     }
 
-    // 3. Envia resposta
     await sendMessage(message.channelId, response);
 
   } catch (error) {
@@ -144,34 +141,27 @@ async function handleIntelligentResponse(message) {
 function decideShouldRespond(message, content) {
   const { responseProbability } = config.personality;
   
-  // PRIORIDADE 1: Menção direta (SEMPRE responde)
   if (content.includes(config.bot.name.toLowerCase()) || content.includes('lu ')) {
     return Math.random() < responseProbability.directMention;
   }
   
-  // PRIORIDADE 2: Resposta direta ao bot
   if (message.reference) {
-    // Se alguém respondeu uma mensagem do bot, responde de volta!
-    return Math.random() < 0.8; // 80% de chance
+    return Math.random() < 0.8;
   }
   
-  // PRIORIDADE 3: Pergunta
   if (content.includes('?')) {
     return Math.random() < responseProbability.question;
   }
   
-  // PRIORIDADE 4: Conversa ativa (várias mensagens recentes no canal)
   const recentInChannel = state.recentMessages.filter(
     m => m.channelId === message.channelId && 
-         Date.now() - m.timestamp < 60000 // Último minuto
+         Date.now() - m.timestamp < 60000
   ).length;
   
   if (recentInChannel > 3) {
-    // Canal ativo, responde mais
     return Math.random() < responseProbability.conversation;
   }
   
-  // PRIORIDADE 5: Resposta aleatória
   return Math.random() < responseProbability.random;
 }
 
@@ -207,10 +197,10 @@ async function sendMessage(channelId, text) {
 }
 
 // ======================
-// VOICE (mantido igual)
+// 🎤 VOICE - MUTADO, SEM TTS AUTOMÁTICO
 // ======================
 
-async function joinVoice(channelId, shouldSpeak = true) {
+async function joinVoice(channelId, shouldSpeak = false) {  // ⭐ MUDOU: shouldSpeak = false
   try {
     const channel = await client.channels.fetch(channelId);
     if (!channel || !channel.isVoiceBased()) {
@@ -225,21 +215,14 @@ async function joinVoice(channelId, shouldSpeak = true) {
       guildId: channel.guild.id,
       adapterCreator: channel.guild.voiceAdapterCreator,
       selfDeaf: false,
-      selfMute: false
+      selfMute: true  // ⭐ MUDOU: agora entra mutado
     });
     
     await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
     state.currentVoiceChannel = { id: channel.id, name: channel.name };
     state.stats.voiceJoins++;
     
-    if (shouldSpeak) {
-      setTimeout(async () => {
-        const greetings = ['fala galera', 'e ai pessoal', 'opa', 'salve'];
-        const greeting = greetings[Math.floor(Math.random() * greetings.length)];
-        const conn = getVoiceConnection(channel.guild.id);
-        if (conn) await ttsManager.addToQueue(greeting, conn);
-      }, 2000);
-    }
+    console.log('✅ Entrou no canal de voz (MUTADO)');
     
     return { success: true, channelName: channel.name };
   } catch (error) {
@@ -261,17 +244,25 @@ function leaveVoice(guildId) {
   }
 }
 
-async function speakInVoice(text) {
+// ⭐ NOVA FUNÇÃO: Tocar preset de áudio
+async function playAudioPreset(presetId) {
   try {
     if (!state.currentVoiceChannel) {
       return { success: false, error: 'Não está em nenhum canal de voz' };
     }
+    
     const connection = getVoiceConnection(state.currentGuild.id);
     if (!connection) {
       return { success: false, error: 'Conexão de voz perdida' };
     }
-    await ttsManager.addToQueue(text, connection);
-    return { success: true };
+    
+    const result = await voicePresets.playPreset(presetId, connection);
+    
+    if (result.success) {
+      state.stats.audioPresetsPlayed++;
+    }
+    
+    return result;
   } catch (error) {
     return { success: false, error: error.message };
   }
@@ -285,6 +276,7 @@ client.once('clientReady', async () => {
   console.log('✅ Bot conectado como:', client.user.tag);
   console.log('🎭 Personificando:', config.bot.name);
   console.log('🤖 Sistema de IA:', config.aiSystem.enabled ? 'ATIVADO' : 'DESATIVADO');
+  console.log('🎵 Presets de áudio:', voicePresets.getPresets().length);
   
   const { status } = config.bot;
 
@@ -318,17 +310,15 @@ client.once('clientReady', async () => {
   
   io.emit('botReady', { ready: true, guild: state.currentGuild });
 
-  // Limpa histórico antigo periodicamente
   setInterval(() => {
     aiHandler.clearOldHistory();
-  }, 60000);  // A cada 1 minuto
+  }, 60000);
 });
 
 client.on('messageCreate', async (message) => {
   if (message.author.id === client.user.id) return;
   if (message.author.bot) return;
 
-  // Atualiza feed
   state.recentMessages.unshift({
     id: message.id,
     author: message.author.username,
@@ -350,10 +340,8 @@ client.on('messageCreate', async (message) => {
     timestamp: new Date().toLocaleTimeString()
   });
 
-  // 🧠 RESPOSTA INTELIGENTE COM IA
   await handleIntelligentResponse(message);
   
-  // 😊 REAÇÕES
   if (Math.random() < config.personality.reactionChance) {
     try {
       const emoji = getContextualReaction(message);
@@ -374,7 +362,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
     if (Math.random() < config.personality.voiceJoinChance) {
       const delay = randomDelay(5000, 30000);
       setTimeout(async () => {
-        await joinVoice(newState.channelId);
+        await joinVoice(newState.channelId, false);  // ⭐ Não fala ao entrar
       }, delay);
     }
   }
@@ -397,7 +385,7 @@ app.get('/api/status', (req, res) => {
     bot: { username: client.user?.username, id: client.user?.id, ...config.bot },
     guild: state.currentGuild,
     stats: state.stats,
-    aiEnabled: config.aiSystem.enabled  // ⭐ NOVO
+    aiEnabled: config.aiSystem.enabled
   });
 });
 
@@ -434,7 +422,7 @@ app.get('/api/voice-channels', async (req, res) => {
 });
 
 app.post('/api/voice/join', async (req, res) => {
-  const result = await joinVoice(req.body.channelId);
+  const result = await joinVoice(req.body.channelId, false);  // ⭐ Sem fala automática
   res.json(result);
 });
 
@@ -448,16 +436,21 @@ app.get('/api/voice/status', (req, res) => {
   res.json({ inVoice: state.currentVoiceChannel !== null, channel: state.currentVoiceChannel });
 });
 
-app.post('/api/voice/speak', async (req, res) => {
-  if (!req.body.text) return res.status(400).json({ error: 'text é obrigatório' });
-  const result = await speakInVoice(req.body.text);
+// ⭐ NOVA ROTA: Listar presets disponíveis
+app.get('/api/voice/presets', (req, res) => {
+  const presets = voicePresets.getPresets();
+  res.json({ presets });
+});
+
+// ⭐ NOVA ROTA: Tocar preset
+app.post('/api/voice/play-preset', async (req, res) => {
+  if (!req.body.presetId) return res.status(400).json({ error: 'presetId é obrigatório' });
+  const result = await playAudioPreset(req.body.presetId);
   res.json(result);
 });
 
-app.post('/api/voice/stop', (req, res) => {
-  ttsManager.stop();
-  res.json({ success: true });
-});
+// ⭐ ROTA REMOVIDA: /api/voice/speak (TTS manual)
+// ⭐ ROTA REMOVIDA: /api/voice/stop (não precisa mais)
 
 app.post('/api/send', async (req, res) => {
   const { channelId, text } = req.body;

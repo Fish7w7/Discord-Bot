@@ -5,235 +5,512 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>🎭 Dashboard - Bot Discord</title>
   
-  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  
-  <!-- Socket.io -->
   <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
   
-  <!-- Font Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
   <style>
-    /* Configuração da fonte Inter como padrão */
-    body {
+    * {
       font-family: 'Inter', sans-serif;
     }
 
-    /* Animação de "slide-in" para novas mensagens */
-    @keyframes slideIn {
+    @keyframes slideInFromTop {
       from {
         opacity: 0;
-        transform: translateY(-10px);
+        transform: translateY(-20px);
       }
       to {
         opacity: 1;
         transform: translateY(0);
       }
     }
-    .message-slide-in {
-      animation: slideIn 0.3s ease;
-    }
 
-    /* Animação de "fade-in" para feedback */
     @keyframes fadeIn {
       from { opacity: 0; }
       to { opacity: 1; }
     }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .message-slide-in {
+      animation: slideInFromTop 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
     .fade-in {
+      animation: fadeIn 0.3s ease;
+    }
+
+    .spinner {
+      animation: spin 1s linear infinite;
+    }
+
+    .pulse-animation {
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    /* Scrollbar personalizada */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: rgba(17, 24, 39, 0.5);
+      border-radius: 4px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(99, 102, 241, 0.5);
+      border-radius: 4px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: rgba(99, 102, 241, 0.8);
+    }
+
+    /* Glassmorphism */
+    .glass {
+      background: rgba(31, 41, 55, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    /* Gradientes personalizados */
+    .gradient-purple {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .gradient-blue {
+      background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+
+    .gradient-green {
+      background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    }
+
+    .gradient-red {
+      background: linear-gradient(135deg, #ee0979 0%, #ff6a00 100%);
+    }
+
+    /* Hover effects */
+    .hover-lift {
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .hover-lift:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Tab System */
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
       animation: fadeIn 0.3s ease;
     }
   </style>
 </head>
-<body class="bg-gradient-to-br from-gray-900 to-gray-800 text-gray-100 min-h-screen p-4 md:p-8">
+<body class="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-gray-100 min-h-screen">
 
   <!-- Loading Overlay -->
-  <div class="loading-overlay fixed inset-0 bg-gray-900/90 backdrop-blur-sm flex flex-col items-center justify-center z-50 text-white" id="loading-overlay">
-    <div class="spinner w-16 h-16 border-4 border-gray-600 border-t-indigo-500 rounded-full animate-spin mb-6"></div>
-    <h2 class="text-2xl font-bold mb-2">Aguardando bot conectar...</h2>
-    <p class="text-lg text-gray-400">Isso pode levar alguns segundos</p>
+  <div class="loading-overlay fixed inset-0 bg-gray-900/95 backdrop-blur-md flex flex-col items-center justify-center z-50" id="loading-overlay">
+    <div class="text-center">
+      <div class="spinner w-20 h-20 border-4 border-gray-700 border-t-indigo-500 rounded-full mb-8"></div>
+      <h2 class="text-3xl font-bold mb-3 bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+        Conectando ao Bot
+      </h2>
+      <p class="text-gray-400 text-lg">Aguarde enquanto estabelecemos a conexão...</p>
+      <div class="mt-6 flex items-center justify-center gap-2">
+        <div class="w-2 h-2 bg-indigo-500 rounded-full pulse-animation"></div>
+        <div class="w-2 h-2 bg-indigo-500 rounded-full pulse-animation" style="animation-delay: 0.2s"></div>
+        <div class="w-2 h-2 bg-indigo-500 rounded-full pulse-animation" style="animation-delay: 0.4s"></div>
+      </div>
+    </div>
   </div>
 
-  <div class="container max-w-7xl mx-auto">
+  <div class="container max-w-[1600px] mx-auto p-4 md:p-6 lg:p-8">
     
     <!-- Header -->
-    <div class="header bg-gray-800/80 backdrop-blur-md border border-gray-700 rounded-2xl p-6 shadow-2xl mb-6">
-      <h1 class="text-3xl font-bold text-white mb-3 flex items-center gap-3">
-        <!-- Status Indicator -->
-        <span class="status w-4 h-4 rounded-full" id="bot-status"></span>
-        <!-- Icon -->
-        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-400"><path d="M10 16.5 12 3l2 13.5"/><path d="M7 11.5 17 21"/><path d="m17 11.5-10 9.5"/></svg>
-        <span>Dashboard - Bot Discord</span>
-      </h1>
-      <p id="bot-info" class="text-gray-400">Carregando informações...</p>
+    <header class="glass rounded-3xl p-6 md:p-8 shadow-2xl mb-6 overflow-hidden relative">
+      <div class="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl"></div>
+      <div class="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl"></div>
       
-      <!-- Stats Grid -->
-      <div class="stats grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-5">
-        <div class="stat-card bg-gray-700/50 border border-gray-600 p-4 rounded-lg">
-          <h3 class="text-sm font-semibold text-indigo-400 uppercase tracking-wider">Mensagens Enviadas</h3>
-          <p id="stat-messages" class="text-3xl font-bold text-white">0</p>
+      <div class="relative z-10">
+        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
+          <div class="flex items-center gap-4">
+            <div class="relative">
+              <div class="status w-5 h-5 rounded-full absolute -top-1 -right-1 z-10 border-2 border-gray-800" id="bot-status"></div>
+              <div class="w-16 h-16 gradient-purple rounded-2xl flex items-center justify-center shadow-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-white">
+                  <rect width="18" height="18" x="3" y="3" rx="2"/>
+                  <path d="M7 7h.01"/>
+                  <path d="M17 7h.01"/>
+                  <path d="M7 17v-4a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v4"/>
+                </svg>
+              </div>
+            </div>
+            <div>
+              <h1 class="text-3xl md:text-4xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+                Bot Dashboard
+              </h1>
+              <p id="bot-info" class="text-gray-400 text-sm md:text-base mt-1">Carregando informações...</p>
+            </div>
+          </div>
+          
+          <div class="flex gap-3">
+            <button onclick="loadAll()" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-xl font-semibold transition-all hover-lift flex items-center gap-2 shadow-lg">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
+                <path d="M21 3v5h-5"/>
+              </svg>
+              Atualizar
+            </button>
+          </div>
         </div>
-        <div class="stat-card bg-gray-700/50 border border-gray-600 p-4 rounded-lg">
-          <h3 class="text-sm font-semibold text-indigo-400 uppercase tracking-wider">Reações Adicionadas</h3>
-          <p id="stat-reactions" class="text-3xl font-bold text-white">0</p>
-        </div>
-        <div class="stat-card bg-gray-700/50 border border-gray-600 p-4 rounded-lg">
-          <h3 class="text-sm font-semibold text-indigo-400 uppercase tracking-wider">Servidor Atual</h3>
-          <p id="stat-guild" class="text-xl font-bold text-white truncate">-</p>
+
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="glass rounded-2xl p-5 hover-lift cursor-pointer">
+            <div class="flex items-center justify-between mb-3">
+              <div class="w-12 h-12 gradient-blue rounded-xl flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+              </div>
+            </div>
+            <p class="text-gray-400 text-sm font-medium mb-1">Mensagens</p>
+            <p id="stat-messages" class="text-3xl font-bold">0</p>
+          </div>
+
+          <div class="glass rounded-2xl p-5 hover-lift cursor-pointer">
+            <div class="flex items-center justify-between mb-3">
+              <div class="w-12 h-12 gradient-purple rounded-xl flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
+                  <line x1="9" x2="9.01" y1="9" y2="9"/>
+                  <line x1="15" x2="15.01" y1="9" y2="9"/>
+                </svg>
+              </div>
+            </div>
+            <p class="text-gray-400 text-sm font-medium mb-1">Reações</p>
+            <p id="stat-reactions" class="text-3xl font-bold">0</p>
+          </div>
+
+          <div class="glass rounded-2xl p-5 hover-lift cursor-pointer">
+            <div class="flex items-center justify-between mb-3">
+              <div class="w-12 h-12 gradient-green rounded-xl flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3Z"/>
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                  <line x1="12" x2="12" y1="19" y2="23"/>
+                </svg>
+              </div>
+            </div>
+            <p class="text-gray-400 text-sm font-medium mb-1">Calls Entradas</p>
+            <p id="stat-voice" class="text-3xl font-bold">0</p>
+          </div>
+
+          <div class="glass rounded-2xl p-5 hover-lift cursor-pointer">
+            <div class="flex items-center justify-between mb-3">
+              <div class="w-12 h-12 gradient-red rounded-xl flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+                  <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+                </svg>
+              </div>
+            </div>
+            <p class="text-gray-400 text-sm font-medium mb-1">Servidor</p>
+            <p id="stat-guild" class="text-lg font-bold truncate">-</p>
+          </div>
         </div>
       </div>
-    </div>
+    </header>
 
     <!-- Main Content -->
-    <div class="main-content grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
       
-      <!-- Messages Feed -->
-      <div class="panel bg-gray-800/80 backdrop-blur-md border border-gray-700 rounded-2xl p-6 shadow-2xl">
-        <h2 class="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-400"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-          Feed de Mensagens
-        </h2>
-        <div class="messages-container h-96 overflow-y-auto bg-gray-900/70 rounded-lg p-4 space-y-3" id="messages">
+      <!-- Feed de Mensagens (2 colunas) -->
+      <div class="xl:col-span-2 glass rounded-3xl p-6 md:p-8 shadow-2xl">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="text-2xl font-bold flex items-center gap-3">
+            <div class="w-10 h-10 gradient-blue rounded-xl flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+            </div>
+            Feed ao Vivo
+          </h2>
+          <span class="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-sm font-semibold flex items-center gap-2">
+            <span class="w-2 h-2 bg-green-400 rounded-full pulse-animation"></span>
+            Online
+          </span>
+        </div>
+
+        <div class="messages-container h-[600px] overflow-y-auto custom-scrollbar bg-gray-900/50 rounded-2xl p-4 space-y-3" id="messages">
           <div class="loading-messages flex flex-col items-center justify-center h-full text-gray-500">
-            <div class="spinner w-8 h-8 border-2 border-gray-600 border-t-indigo-500 rounded-full animate-spin mb-4"></div>
-            <p>Aguardando mensagens...</p>
+            <div class="spinner w-10 h-10 border-2 border-gray-700 border-t-indigo-500 rounded-full mb-4"></div>
+            <p class="text-lg">Aguardando mensagens...</p>
           </div>
         </div>
       </div>
 
-      <!-- Control Panel -->
-      <div class="panel bg-gray-800/80 backdrop-blur-md border border-gray-700 rounded-2xl p-6 shadow-2xl">
-        <h2 class="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-400"><path d="M2.5 10.5c.1-2.2 1-4.2 2.5-5.8s3.6-2.4 5.8-2.5C12.3 2.1 14 2 15.2 2h1.6c.7 0 1.3.1 1.9.4l.4.2c.2.1.4.2.6.4s.3.4.4.6l.2.4c.3.6.4 1.2.4 1.9v1.6c0 1.2-.1 2.9-1.2 4.5s-2.9 2.7-5.8 2.5c-1.7-.1-3.3-.8-4.5-2s-1.9-2.8-2-4.5c0-.2 0-.4 0-.6v-1.6c0-.2 0-.4 0-.6Z"></path><path d="M14 8V6H8v2"></path><path d="M12 18h.01"></path><path d="M10 15h4"></path><path d="m14 12-2 2-2-2"></path></svg>
-          Controle Manual
-        </h2>
-        <div class="control-panel flex flex-col gap-4">
-          
-          <!-- MENSAGENS NO CHAT -->
-          <div class="form-group flex flex-col gap-2">
-            <label for="channel-select" class="text-sm font-semibold text-gray-300">Canal de Texto:</label>
-            <select id="channel-select" class="w-full p-3 bg-gray-700 border-2 border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors">
-              <option value="">Carregando canais...</option>
-            </select>
-          </div>
-
-          <div class="form-group flex flex-col gap-2">
-            <label for="message-input" class="text-sm font-semibold text-gray-300">Mensagem:</label>
-            <textarea id="message-input" placeholder="Digite a mensagem que o bot vai enviar... (Ctrl+Enter para enviar)" rows="3" class="w-full p-3 bg-gray-700 border-2 border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"></textarea>
-          </div>
-
-          <button id="send-btn" onclick="sendMessage()" class="w-full p-3 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-bold rounded-lg shadow-md hover:shadow-lg hover:-translate-y-0.5 transform transition-all flex items-center justify-center gap-2 disabled:bg-gray-500 disabled:from-gray-500 disabled:transform-none disabled:cursor-not-allowed">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"></path><path d="m22 2-11 11"></path></svg>
-            <span>Enviar Mensagem</span>
+      <!-- Painel de Controle (1 coluna) -->
+      <div class="glass rounded-3xl p-6 md:p-8 shadow-2xl">
+        
+        <!-- Tabs -->
+        <div class="flex gap-2 mb-6 bg-gray-900/50 rounded-xl p-1">
+          <button onclick="switchTab('messages')" class="tab-btn flex-1 px-4 py-3 rounded-lg font-semibold transition-all" id="tab-messages">
+            💬 Mensagens
           </button>
-
-          <!-- Feedback area -->
-          <div id="feedback" class="h-12"></div>
-
-          <div class="quick-actions grid grid-cols-2 gap-3">
-            <button class="quick-btn p-2.5 text-sm bg-gray-700/80 hover:bg-gray-700 text-white font-semibold rounded-lg shadow transition-colors" onclick="quickMessage('fala galera')">
-              👋 Fala galera
-            </button>
-            <button class="quick-btn p-2.5 text-sm bg-gray-700/80 hover:bg-gray-700 text-white font-semibold rounded-lg shadow transition-colors" onclick="quickMessage('to com fome')">
-              🍕 To com fome
-            </button>
-            <button class="quick-btn p-2.5 text-sm bg-gray-700/80 hover:bg-gray-700 text-white font-semibold rounded-lg shadow transition-colors" onclick="quickMessage('bora jogar')">
-              🎮 Bora jogar
-            </button>
-            <button class="quick-btn p-2.5 text-sm bg-gray-700/80 hover:bg-gray-700 text-white font-semibold rounded-lg shadow transition-colors" onclick="quickMessage('kkkkk')">
-              😂 kkkkk
-            </button>
-          </div>
-
-          <hr class="border-t border-gray-700 my-2">
-
-          <!-- CONTROLES DE VOZ -->
-          <h3 class="text-lg font-semibold text-white flex items-center gap-3">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-400"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3Z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" x2="12" y1="19" y2="23"></line></svg>
-            Controles de Voz
-          </h3>
-          
-          <div class="form-group flex flex-col gap-2">
-            <label for="voice-channel-select" class="text-sm font-semibold text-gray-300">Canal de Voz:</label>
-            <select id="voice-channel-select" class="w-full p-3 bg-gray-700 border-2 border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors">
-              <option value="">Carregando canais de voz...</option>
-            </select>
-          </div>
-          
-          <div class="grid grid-cols-2 gap-3">
-            <button id="join-voice-btn" onclick="joinVoiceChannel()" class="quick-btn p-3 text-sm bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 text-white font-bold rounded-lg shadow-md transition-all flex items-center justify-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3Z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" x2="12" y1="19" y2="23"></line></svg>
-              <span>Entrar na Call</span>
-            </button>
-            <button id="leave-voice-btn" onclick="leaveVoiceChannel()" class="quick-btn p-3 text-sm bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-bold rounded-lg shadow-md transition-all flex items-center justify-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" x2="9" y1="12" y2="12"></line></svg>
-              <span>Sair da Call</span>
-            </button>
-          </div>
-          
-          <div id="voice-status" class="voice-status p-3 rounded-lg text-center text-sm font-medium bg-gray-700 text-gray-300 transition-colors">
-            Status: Não conectado
-          </div>
-
-          <hr class="border-t border-gray-700 my-2">
-
-          <!-- TTS - FALAR NA CALL -->
-          <h3 class="text-lg font-semibold text-white flex items-center gap-3">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-400"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
-            Falar na Call (TTS)
-          </h3>
-
-          <div class="form-group flex flex-col gap-2">
-            <label for="tts-input" class="text-sm font-semibold text-gray-300">O que falar:</label>
-            <textarea id="tts-input" placeholder="Digite o que o bot vai falar na call..." rows="3" class="w-full p-3 bg-gray-700 border-2 border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"></textarea>
-          </div>
-
-          <div class="grid grid-cols-2 gap-3">
-            <button id="speak-btn" onclick="speakInVoice()" class="quick-btn p-3 text-sm bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-bold rounded-lg shadow-md transition-all flex items-center justify-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>
-              <span>Falar</span>
-            </button>
-            <button id="stop-speak-btn" onclick="stopSpeaking()" class="quick-btn p-3 text-sm bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-bold rounded-lg shadow-md transition-all flex items-center justify-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
-              <span>Parar</span>
-            </button>
-          </div>
-          
-          <div class="quick-actions grid grid-cols-2 gap-3 mt-2">
-            <button class="quick-btn p-2.5 text-sm bg-gray-700/80 hover:bg-gray-700 text-white font-semibold rounded-lg shadow transition-colors" onclick="quickSpeak('fala galera')">
-              👋 Fala galera
-            </button>
-            <button class="quick-btn p-2.5 text-sm bg-gray-700/80 hover:bg-gray-700 text-white font-semibold rounded-lg shadow transition-colors" onclick="quickSpeak('to com fome')">
-              🍕 To com fome
-            </button>
-            <button class="quick-btn p-2.5 text-sm bg-gray-700/80 hover:bg-gray-700 text-white font-semibold rounded-lg shadow transition-colors" onclick="quickSpeak('bora jogar')">
-              🎮 Bora jogar
-            </button>
-            <button class="quick-btn p-2.5 text-sm bg-gray-700/80 hover:bg-gray-700 text-white font-semibold rounded-lg shadow transition-colors" onclick="quickSpeak('kkkkkk')">
-              😂 kkkkk
-            </button>
-            <button class="quick-btn p-2.5 text-sm bg-gray-700/80 hover:bg-gray-700 text-white font-semibold rounded-lg shadow transition-colors" onclick="quickSpeak('que isso mano')">
-              😱 Que isso mano
-            </button>
-            <button class="quick-btn p-2.5 text-sm bg-gray-700/80 hover:bg-gray-700 text-white font-semibold rounded-lg shadow transition-colors" onclick="quickSpeak('concordo')">
-              👍 Concordo
-            </button>
-          </div>
-
+          <button onclick="switchTab('voice')" class="tab-btn flex-1 px-4 py-3 rounded-lg font-semibold transition-all" id="tab-voice">
+            🎤 Voz
+          </button>
         </div>
-      </div>
+
+        <!-- Tab: Mensagens -->
+        <div class="tab-content active" id="content-messages">
+          <div class="space-y-4">
+            
+            <div>
+              <label class="text-sm font-semibold text-gray-300 mb-2 block">Canal de Texto</label>
+              <select id="channel-select" class="w-full p-3 bg-gray-900/70 border border-gray-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+                <option value="">Carregando canais...</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="text-sm font-semibold text-gray-300 mb-2 block">Mensagem</label>
+              <textarea id="message-input" placeholder="Digite sua mensagem... (Ctrl+Enter para enviar)" rows="4" class="w-full p-3 bg-gray-900/70 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all resize-none"></textarea>
+            </div>
+
+            <button id="send-btn" onclick="sendMessage()" class="w-full p-4 gradient-blue text-white font-bold rounded-xl shadow-lg hover-lift flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m22 2-7 20-4-9-9-4Z"/>
+                <path d="m22 2-11 11"/>
+              </svg>
+              Enviar Mensagem
+            </button>
+
+            <div id="feedback" class="min-h-[60px]"></div>
+
+            <div>
+              <p class="text-sm font-semibold text-gray-400 mb-3">Atalhos Rápidos</p>
+              <div class="grid grid-cols-2 gap-2">
+                <button onclick="quickMessage('fala galera')" class="p-3 bg-gray-800/50 hover:bg-gray-800 rounded-xl text-sm font-medium transition-all hover-lift">
+                  👋 Fala galera
+                </button>
+                <button onclick="quickMessage('to com fome')" class="p-3 bg-gray-800/50 hover:bg-gray-800 rounded-xl text-sm font-medium transition-all hover-lift">
+                  🍕 Com fome
+                </button>
+                <button onclick="quickMessage('bora jogar')" class="p-3 bg-gray-800/50 hover:bg-gray-800 rounded-xl text-sm font-medium transition-all hover-lift">
+                  🎮 Bora jogar
+                </button>
+                <button onclick="quickMessage('kkkkk')" class="p-3 bg-gray-800/50 hover:bg-gray-800 rounded-xl text-sm font-medium transition-all hover-lift">
+                  😂 kkkkk
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: Voz -->
+<div class="tab-content" id="content-voice">
+  <div class="space-y-4">
+    
+    <div id="voice-status" class="p-4 rounded-xl text-center font-medium bg-gray-800/50 text-gray-400 border border-gray-700">
+      Status: Não conectado
     </div>
+
+    <div>
+      <label class="text-sm font-semibold text-gray-300 mb-2 block">Canal de Voz</label>
+      <select id="voice-channel-select" class="w-full p-3 bg-gray-900/70 border border-gray-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+        <option value="">Carregando canais...</option>
+      </select>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3">
+      <button onclick="joinVoiceChannel()" class="p-4 gradient-green text-white font-bold rounded-xl shadow-lg hover-lift flex items-center justify-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 12h14"/>
+          <path d="m12 5 7 7-7 7"/>
+        </svg>
+        Entrar
+      </button>
+      <button onclick="leaveVoiceChannel()" class="p-4 gradient-red text-white font-bold rounded-xl shadow-lg hover-lift flex items-center justify-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+          <polyline points="16 17 21 12 16 7"/>
+          <line x1="21" x2="9" y1="12" y2="12"/>
+        </svg>
+        Sair
+      </button>
+    </div>
+
+    <hr class="border-gray-700">
+
+    <!-- NOVO: Seção de Presets de Áudio -->
+    <div>
+      <div class="flex items-center justify-between mb-3">
+        <label class="text-sm font-semibold text-gray-300">Áudios Pré-gravados</label>
+        <button onclick="loadVoicePresets()" class="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
+          🔄 Recarregar
+        </button>
+      </div>
+      
+      <div id="presets-loading" class="text-center py-8 text-gray-500">
+        <div class="spinner w-8 h-8 border-2 border-gray-700 border-t-indigo-500 rounded-full mx-auto mb-3"></div>
+        <p>Carregando presets...</p>
+      </div>
+
+      <div id="presets-empty" class="hidden text-center py-8 bg-gray-900/50 rounded-xl border-2 border-dashed border-gray-700">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-4 text-gray-600">
+          <path d="M9 18V5l12-2v13"/>
+          <circle cx="6" cy="18" r="3"/>
+          <circle cx="18" cy="16" r="3"/>
+        </svg>
+        <p class="text-gray-400 mb-2">Nenhum áudio encontrado</p>
+        <p class="text-xs text-gray-500">Adicione arquivos .mp3 na pasta <code class="bg-gray-800 px-2 py-1 rounded">audios/</code></p>
+      </div>
+
+      <div id="presets-container" class="hidden grid grid-cols-2 gap-2 max-h-[400px] overflow-y-auto custom-scrollbar"></div>
+    </div>
+
   </div>
+</div>
+
+<script>
+// ==============================
+// FUNÇÕES DE VOZ COM PRESETS
+// ==============================
+
+let audioPresets = [];
+
+async function loadVoicePresets() {
+  try {
+    const presetsLoading = document.getElementById('presets-loading');
+    const presetsEmpty = document.getElementById('presets-empty');
+    const presetsContainer = document.getElementById('presets-container');
+    
+    presetsLoading.classList.remove('hidden');
+    presetsEmpty.classList.add('hidden');
+    presetsContainer.classList.add('hidden');
+    
+    const res = await fetch(`${API_URL}/api/voice/presets`);
+    const data = await res.json();
+    
+    audioPresets = data.presets || [];
+    
+    presetsLoading.classList.add('hidden');
+    
+    if (audioPresets.length === 0) {
+      presetsEmpty.classList.remove('hidden');
+      return;
+    }
+    
+    presetsContainer.classList.remove('hidden');
+    presetsContainer.innerHTML = '';
+    
+    audioPresets.forEach(preset => {
+      const button = document.createElement('button');
+      button.className = 'p-3 bg-gradient-to-br from-purple-600/20 to-pink-600/20 hover:from-purple-600/30 hover:to-pink-600/30 border border-purple-500/30 rounded-xl text-sm font-medium transition-all hover-lift flex items-center justify-center gap-2';
+      button.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="5 3 19 12 5 21 5 3"/>
+        </svg>
+        <span class="truncate">${preset.name}</span>
+      `;
+      button.onclick = () => playPreset(preset.id, preset.name);
+      presetsContainer.appendChild(button);
+    });
+    
+    console.log(`✅ ${audioPresets.length} presets carregados`);
+    
+  } catch (error) {
+    console.error('❌ Erro ao carregar presets:', error);
+    document.getElementById('presets-loading').classList.add('hidden');
+    document.getElementById('presets-empty').classList.remove('hidden');
+  }
+}
+
+async function playPreset(presetId, presetName) {
+  try {
+    showFeedback(`🔊 Tocando: ${presetName}...`, 'info');
+    
+    const res = await fetch(`${API_URL}/api/voice/play-preset`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ presetId })
+    });
+    
+    const data = await res.json();
+    
+    if (data.success) {
+      showFeedback(`✅ Áudio reproduzido: ${presetName}`, 'success');
+    } else {
+      showFeedback(`❌ Erro: ${data.error}`, 'error');
+    }
+  } catch (error) {
+    showFeedback('❌ Erro de conexão!', 'error');
+  }
+}
+
+// Atualizar a função loadAll() para incluir presets
+function loadAll() {
+  loadStatus();
+  loadChannels();
+  loadMessages();
+  loadVoiceChannels();
+  loadVoicePresets(); 
+}
+
+// Carregar presets quando trocar para a aba de voz
+function switchTab(tab) {
+  // Update buttons
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.remove('bg-indigo-600', 'text-white');
+    btn.classList.add('text-gray-400');
+  });
+  document.getElementById(`tab-${tab}`).classList.add('bg-indigo-600', 'text-white');
+  document.getElementById(`tab-${tab}`).classList.remove('text-gray-400');
+
+  // Update content
+  document.querySelectorAll('.tab-content').forEach(content => {
+    content.classList.remove('active');
+  });
+  document.getElementById(`content-${tab}`).classList.add('active');
+  
+  // ⭐ NOVO: Carregar presets ao abrir aba de voz
+  if (tab === 'voice' && audioPresets.length === 0) {
+    loadVoicePresets();
+  }
+}
+</script>
 
   <script>
-    // --- Elementos DOM ---
+    // === CONFIG ===
+    const API_URL = 'http://localhost:3001';
+    const socket = io(API_URL);
+
+    // === DOM Elements ===
     const loadingOverlay = document.getElementById('loading-overlay');
     const botStatus = document.getElementById('bot-status');
     const botInfo = document.getElementById('bot-info');
     const statMessages = document.getElementById('stat-messages');
     const statReactions = document.getElementById('stat-reactions');
+    const statVoice = document.getElementById('stat-voice');
     const statGuild = document.getElementById('stat-guild');
     const messagesContainer = document.getElementById('messages');
     const channelSelect = document.getElementById('channel-select');
@@ -243,35 +520,57 @@
     const voiceChannelSelect = document.getElementById('voice-channel-select');
     const voiceStatusDiv = document.getElementById('voice-status');
     const ttsInput = document.getElementById('tts-input');
-    
-    // --- Ícones e Texto de Botões ---
-    const sendBtnOriginalHTML = sendBtn.innerHTML;
-    const spinnerIcon = `<svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
 
-    // --- Estado da Aplicação ---
-    const socket = io('http://localhost:3001');
     let botReady = false;
 
-    // --- Conexão WebSocket ---
+    // === TAB SYSTEM ===
+    function switchTab(tab) {
+      // Update buttons
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('bg-indigo-600', 'text-white');
+        btn.classList.add('text-gray-400');
+      });
+      document.getElementById(`tab-${tab}`).classList.add('bg-indigo-600', 'text-white');
+      document.getElementById(`tab-${tab}`).classList.remove('text-gray-400');
+
+      // Update content
+      document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+      });
+      document.getElementById(`content-${tab}`).classList.add('active');
+    }
+
+    // === WEBSOCKET COM OTIMIZAÇÃO ===
     socket.on('connect', () => {
-      console.log('✅ Conectado ao WebSocket');
-      checkBotReady();
+      console.log('✅ WebSocket conectado');
+      if (!document.hidden) {
+        checkBotReady();
+      }
     });
 
-    socket.on('botReady', (data) => {
-      console.log('🎉 Bot está pronto!', data);
+    socket.on('disconnect', () => {
+      console.log('📴 WebSocket desconectado');
+    });
+
+    socket.on('botReady', () => {
+      console.log('🎉 Bot pronto!');
       handleBotReady();
     });
 
     socket.on('newMessage', (data) => {
-      addMessageToFeed(data);
+      // Só adiciona mensagem se a aba estiver visível
+      if (!document.hidden) {
+        addMessageToFeed(data);
+        // Atualizar stats apenas quando recebe mensagem
+        loadStatus();
+      }
     });
 
-    // --- Funções de Inicialização ---
+    // === INITIALIZATION ===
     async function checkBotReady() {
       if (botReady) return;
       try {
-        const res = await fetch('http://localhost:3001/api/status');
+        const res = await fetch(`${API_URL}/api/status`);
         const data = await res.json();
         
         if (data.guild) {
@@ -286,12 +585,14 @@
     }
 
     function handleBotReady() {
-      if (botReady) return; // Prevenir execução múltipla
+      if (botReady) return;
       botReady = true;
-      loadingOverlay.classList.add('hidden');
-      botStatus.classList.remove('bg-red-500');
-      botStatus.classList.add('bg-green-500', 'animate-pulse');
+      loadingOverlay.style.display = 'none';
+      botStatus.classList.add('bg-green-500', 'pulse-animation');
       loadAll();
+      
+      // Set active tab
+      document.getElementById('tab-messages').classList.add('bg-indigo-600', 'text-white');
     }
 
     function loadAll() {
@@ -300,16 +601,17 @@
       loadMessages();
       loadVoiceChannels();
     }
-    
-    // --- Carregamento de Dados (API) ---
+
+    // === API CALLS ===
     async function loadStatus() {
       try {
-        const res = await fetch('http://localhost:3001/api/status');
+        const res = await fetch(`${API_URL}/api/status`);
         const data = await res.json();
         
-        botInfo.textContent = `Personificando: ${data.bot.name} | ID: ${data.bot.username}`;
+        botInfo.textContent = `${data.bot.name} • ${data.bot.username || 'Carregando...'}`;
         statMessages.textContent = data.stats.messagesSent;
         statReactions.textContent = data.stats.reactionsAdded;
+        statVoice.textContent = data.stats.voiceJoins || 0;
         statGuild.textContent = data.guild ? data.guild.name : 'Aguardando...';
       } catch (error) {
         console.error('Erro ao carregar status:', error);
@@ -318,13 +620,11 @@
 
     async function loadChannels() {
       if (!botReady) return;
-      
       try {
-        const res = await fetch('http://localhost:3001/api/channels');
+        const res = await fetch(`${API_URL}/api/channels`);
         const data = await res.json();
         
         channelSelect.innerHTML = '<option value="">Selecione um canal...</option>';
-        
         data.channels.forEach(channel => {
           const option = document.createElement('option');
           option.value = channel.id;
@@ -338,23 +638,25 @@
 
     async function loadMessages() {
       try {
-        const res = await fetch('http://localhost:3001/api/messages');
+        const res = await fetch(`${API_URL}/api/messages`);
         const data = await res.json();
         
         if (data.messages && data.messages.length === 0) {
-          messagesContainer.innerHTML = '<div class="loading-messages flex flex-col items-center justify-center h-full text-gray-500"><p>Nenhuma mensagem ainda...</p></div>';
+          messagesContainer.innerHTML = '<div class="loading-messages flex flex-col items-center justify-center h-full text-gray-500"><p class="text-lg">Nenhuma mensagem ainda...</p></div>';
           return;
         }
         
         messagesContainer.innerHTML = '';
         if (data.messages) {
-          data.messages.reverse().forEach(msg => {
+          // Limitar para últimas 30 mensagens (era 50)
+          const recentMessages = data.messages.slice(-30);
+          recentMessages.reverse().forEach(msg => {
             addMessageToFeed({
               author: msg.author,
               content: msg.content,
               channel: msg.channelName,
               timestamp: new Date(msg.timestamp).toLocaleTimeString()
-            }, false); // Não animar mensagens iniciais
+            }, false);
           });
         }
       } catch (error) {
@@ -364,9 +666,8 @@
 
     async function loadVoiceChannels() {
       if (!botReady) return;
-      
       try {
-        const res = await fetch('http://localhost:3001/api/voice-channels');
+        const res = await fetch(`${API_URL}/api/voice-channels`);
         const data = await res.json();
         
         if (data.error) {
@@ -374,17 +675,17 @@
           return;
         }
         
-        voiceChannelSelect.innerHTML = '<option value="">Selecione um canal de voz...</option>';
+        voiceChannelSelect.innerHTML = '<option value="">Selecione um canal...</option>';
         
         if (data.channels.length === 0) {
-          voiceChannelSelect.innerHTML = '<option value="">Nenhum canal de voz encontrado</option>';
+          voiceChannelSelect.innerHTML = '<option value="">Nenhum canal encontrado</option>';
           return;
         }
         
         data.channels.forEach(channel => {
           const option = document.createElement('option');
           option.value = channel.id;
-          option.textContent = `🔊 ${channel.name} (${channel.members} pessoas)`;
+          option.textContent = `🔊 ${channel.name} (${channel.members} ${channel.members === 1 ? 'pessoa' : 'pessoas'})`;
           voiceChannelSelect.appendChild(option);
         });
         
@@ -396,42 +697,58 @@
 
     async function loadVoiceStatus() {
       try {
-        const res = await fetch('http://localhost:3001/api/voice/status');
+        const res = await fetch(`${API_URL}/api/voice/status`);
         const data = await res.json();
         
-        voiceStatusDiv.classList.remove('bg-green-600', 'text-white', 'bg-gray-700', 'text-gray-300');
+        voiceStatusDiv.classList.remove('bg-green-600', 'text-white', 'bg-gray-800/50', 'text-gray-400', 'border-green-500', 'border-gray-700');
         
         if (data.inVoice) {
-          voiceStatusDiv.innerHTML = `🎤 Conectado em: <strong>${data.channel.name}</strong>`;
-          voiceStatusDiv.classList.add('bg-green-600', 'text-white');
+          voiceStatusDiv.innerHTML = `
+            <div class="flex items-center justify-center gap-2">
+              <span class="w-2 h-2 bg-green-400 rounded-full pulse-animation"></span>
+              <span>Conectado em: <strong>${data.channel.name}</strong></span>
+            </div>
+          `;
+          voiceStatusDiv.classList.add('bg-green-600', 'text-white', 'border', 'border-green-500');
         } else {
-          voiceStatusDiv.innerHTML = 'Status: Não conectado';
-          voiceStatusDiv.classList.add('bg-gray-700', 'text-gray-300');
+          voiceStatusDiv.innerHTML = `
+            <div class="flex items-center justify-center gap-2">
+              <span class="w-2 h-2 bg-gray-500 rounded-full"></span>
+              <span>Não conectado</span>
+            </div>
+          `;
+          voiceStatusDiv.classList.add('bg-gray-800/50', 'text-gray-400', 'border', 'border-gray-700');
         }
       } catch (error) {
         console.error('Erro ao carregar status de voz:', error);
       }
     }
 
-    // --- Funções de Ação (POST) ---
+    // === ACTIONS ===
     async function sendMessage() {
       const channelId = channelSelect.value;
       const text = messageInput.value.trim();
       
       if (!channelId) {
-        showFeedback('Selecione um canal!', 'error');
+        showFeedback('⚠️ Selecione um canal!', 'warning');
         return;
       }
       if (!text) {
-        showFeedback('Digite uma mensagem!', 'error');
+        showFeedback('⚠️ Digite uma mensagem!', 'warning');
         return;
       }
       
       sendBtn.disabled = true;
-      sendBtn.innerHTML = `${spinnerIcon} <span>Enviando...</span>`;
+      sendBtn.innerHTML = `
+        <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <span>Enviando...</span>
+      `;
       
       try {
-        const res = await fetch('http://localhost:3001/api/send', {
+        const res = await fetch(`${API_URL}/api/send`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ channelId, text })
@@ -440,9 +757,8 @@
         const data = await res.json();
         
         if (data.success) {
-          showFeedback(`✅ Enviado: "${data.humanizedText}"`, 'success');
+          showFeedback(`✅ Enviado: "${data.humanizedText || text}"`, 'success');
           messageInput.value = '';
-          loadStatus();
         } else {
           showFeedback(`❌ Erro: ${data.error}`, 'error');
         }
@@ -450,28 +766,35 @@
         showFeedback('❌ Erro de conexão!', 'error');
       } finally {
         sendBtn.disabled = false;
-        sendBtn.innerHTML = sendBtnOriginalHTML;
+        sendBtn.innerHTML = `
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m22 2-7 20-4-9-9-4Z"/>
+            <path d="m22 2-11 11"/>
+          </svg>
+          Enviar Mensagem
+        `;
       }
     }
-    
+
     async function joinVoiceChannel() {
       const channelId = voiceChannelSelect.value;
       if (!channelId) {
-        showFeedback('Selecione um canal de voz!', 'error');
+        showFeedback('⚠️ Selecione um canal de voz!', 'warning');
         return;
       }
       
       try {
-        const res = await fetch('http://localhost:3001/api/voice/join', {
+        const res = await fetch(`${API_URL}/api/voice/join`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ channelId })
         });
         const data = await res.json();
+        
         if (data.success) {
           showFeedback(`✅ Entrou no canal: ${data.channelName}`, 'success');
           loadVoiceStatus();
-          loadVoiceChannels(); // Atualiza contagem de membros
+          loadVoiceChannels();
         } else {
           showFeedback(`❌ Erro: ${data.error}`, 'error');
         }
@@ -479,18 +802,19 @@
         showFeedback('❌ Erro de conexão!', 'error');
       }
     }
-    
+
     async function leaveVoiceChannel() {
       try {
-        const res = await fetch('http://localhost:3001/api/voice/leave', {
+        const res = await fetch(`${API_URL}/api/voice/leave`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' }
         });
         const data = await res.json();
+        
         if (data.success) {
           showFeedback('✅ Saiu do canal de voz', 'success');
           loadVoiceStatus();
-          loadVoiceChannels(); // Atualiza contagem de membros
+          loadVoiceChannels();
         } else {
           showFeedback(`❌ Erro: ${data.error}`, 'error');
         }
@@ -502,17 +826,18 @@
     async function speakInVoice() {
       const text = ttsInput.value.trim();
       if (!text) {
-        showFeedback('Digite algo para falar!', 'error');
+        showFeedback('⚠️ Digite algo para falar!', 'warning');
         return;
       }
       
       try {
-        const res = await fetch('http://localhost:3001/api/voice/speak', {
+        const res = await fetch(`${API_URL}/api/voice/speak`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text })
         });
         const data = await res.json();
+        
         if (data.success) {
           showFeedback(`🔊 Falando: "${text}"`, 'success');
           ttsInput.value = '';
@@ -526,11 +851,12 @@
 
     async function stopSpeaking() {
       try {
-        const res = await fetch('http://localhost:3001/api/voice/stop', {
+        const res = await fetch(`${API_URL}/api/voice/stop`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' }
         });
         const data = await res.json();
+        
         if (data.success) {
           showFeedback('🛑 Parou de falar', 'success');
         }
@@ -539,25 +865,46 @@
       }
     }
 
-    // --- Funções Utilitárias ---
+    // === UTILITIES ===
     function addMessageToFeed(data, animate = true) {
       const loadingMsg = messagesContainer.querySelector('.loading-messages');
       if (loadingMsg) loadingMsg.remove();
       
       const msgDiv = document.createElement('div');
-      msgDiv.className = 'message bg-gray-800 p-3 rounded-lg shadow-sm border-l-4 border-indigo-500';
+      msgDiv.className = 'message bg-gradient-to-r from-gray-800/50 to-gray-800/30 p-4 rounded-xl border border-gray-700/50 hover:border-indigo-500/50 transition-all';
       if (animate) {
         msgDiv.classList.add('message-slide-in');
       }
       
+      // Detectar tipo de mensagem
+      const isBot = data.author.toLowerCase().includes('luisa') || data.author.toLowerCase().includes('bot');
+      const borderColor = isBot ? 'border-l-indigo-500' : 'border-l-blue-500';
+      msgDiv.classList.add('border-l-4', borderColor);
+      
       msgDiv.innerHTML = `
-        <div class="message-author font-bold text-indigo-400">${data.author}</div>
-        <div class="message-meta text-xs text-gray-500 mb-1">${data.channel} • ${data.timestamp}</div>
-        <div class="message-content text-gray-200 break-words">${data.content}</div>
+        <div class="flex items-start gap-3">
+          <div class="w-10 h-10 ${isBot ? 'gradient-purple' : 'bg-gray-700'} rounded-xl flex items-center justify-center flex-shrink-0 font-bold text-white">
+            ${data.author.charAt(0).toUpperCase()}
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="font-bold text-white">${data.author}</span>
+              ${isBot ? '<span class="px-2 py-0.5 bg-indigo-500/20 text-indigo-400 rounded text-xs font-semibold">BOT</span>' : ''}
+            </div>
+            <div class="text-xs text-gray-500 mb-2">#${data.channel} • ${data.timestamp}</div>
+            <div class="text-gray-200 break-words leading-relaxed">${escapeHtml(data.content)}</div>
+          </div>
+        </div>
       `;
       
       messagesContainer.appendChild(msgDiv);
       messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      
+      // Limitar mensagens exibidas a 30 (era 50)
+      const messages = messagesContainer.querySelectorAll('.message');
+      if (messages.length > 30) {
+        messages[0].remove();
+      }
     }
 
     function quickMessage(text) {
@@ -571,24 +918,46 @@
     }
 
     function showFeedback(message, type) {
-      feedbackDiv.innerHTML = ''; // Limpa feedback anterior
+      feedbackDiv.innerHTML = '';
+      
+      const colors = {
+        success: 'bg-green-600/20 text-green-300 border-green-500/50',
+        error: 'bg-red-600/20 text-red-300 border-red-500/50',
+        warning: 'bg-yellow-600/20 text-yellow-300 border-yellow-500/50',
+        info: 'bg-blue-600/20 text-blue-300 border-blue-500/50'
+      };
+      
+      const icons = {
+        success: '✅',
+        error: '❌',
+        warning: '⚠️',
+        info: 'ℹ️'
+      };
       
       const feedbackEl = document.createElement('div');
-      feedbackEl.className = `p-3 rounded-lg text-center font-semibold fade-in ${
-        type === 'success' 
-          ? 'bg-green-900/50 text-green-300' 
-          : 'bg-red-900/50 text-red-300'
-      }`;
-      feedbackEl.textContent = message;
+      feedbackEl.className = `p-4 rounded-xl border-2 font-semibold fade-in ${colors[type] || colors.info}`;
+      feedbackEl.innerHTML = `
+        <div class="flex items-center gap-2">
+          <span class="text-xl">${icons[type] || icons.info}</span>
+          <span>${message}</span>
+        </div>
+      `;
       
       feedbackDiv.appendChild(feedbackEl);
       
       setTimeout(() => {
-        feedbackEl.remove();
-      }, 3000);
+        feedbackEl.style.animation = 'fadeIn 0.3s ease reverse';
+        setTimeout(() => feedbackEl.remove(), 300);
+      }, 4000);
     }
 
-    // --- Event Listeners ---
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // === EVENT LISTENERS ===
     messageInput.addEventListener('keydown', (e) => {
       if (e.ctrlKey && e.key === 'Enter') {
         e.preventDefault();
@@ -596,18 +965,82 @@
       }
     });
 
-    // --- Polling (Intervalos) ---
-    setInterval(() => {
-      if (botReady) loadStatus();
-    }, 5000);
-    
-    setInterval(() => {
-      if (botReady) loadVoiceChannels();
-    }, 10000);
+    ttsInput.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && e.key === 'Enter') {
+        e.preventDefault();
+        speakInVoice();
+      }
+    });
 
-    // --- Estado Inicial ---
-    botStatus.classList.add('bg-red-500'); // Começa offline
+    // === POLLING COM PAGE VISIBILITY ===
+    let statusInterval = null;
+    let voiceInterval = null;
 
+    function startPolling() {
+      // Só faz polling se a página estiver visível
+      if (document.hidden || !botReady) return;
+
+      // Status a cada 10s (era 5s)
+      if (!statusInterval) {
+        statusInterval = setInterval(() => {
+          if (!document.hidden && botReady) {
+            loadStatus();
+          }
+        }, 10000);
+      }
+
+      // Voice channels a cada 30s (era 10s)
+      if (!voiceInterval) {
+        voiceInterval = setInterval(() => {
+          if (!document.hidden && botReady) {
+            loadVoiceChannels();
+          }
+        }, 30000);
+      }
+    }
+
+    function stopPolling() {
+      if (statusInterval) {
+        clearInterval(statusInterval);
+        statusInterval = null;
+      }
+      if (voiceInterval) {
+        clearInterval(voiceInterval);
+        voiceInterval = null;
+      }
+    }
+
+    // Detectar quando usuário sai/volta para a aba
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        console.log('📴 Aba inativa - pausando polling');
+        stopPolling();
+        // Desconectar WebSocket quando inativo
+        socket.disconnect();
+      } else {
+        console.log('✅ Aba ativa - retomando polling');
+        // Reconectar WebSocket
+        socket.connect();
+        loadAll(); // Atualiza tudo ao voltar
+        startPolling();
+      }
+    });
+
+    // Iniciar polling quando bot estiver pronto
+    function handleBotReady() {
+      if (botReady) return;
+      botReady = true;
+      loadingOverlay.style.display = 'none';
+      botStatus.classList.add('bg-green-500', 'pulse-animation');
+      loadAll();
+      startPolling(); // ⭐ Inicia polling aqui
+      
+      // Set active tab
+      document.getElementById('tab-messages').classList.add('bg-indigo-600', 'text-white');
+    }
+
+    // === INIT ===
+    botStatus.classList.add('bg-red-500');
   </script>
 </body>
 </html>
