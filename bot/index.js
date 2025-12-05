@@ -1,4 +1,4 @@
-// bot/index.js - Bot com Presets de Voz
+// bot/index.js - Bot Melhorado com Segurança e Performance
 require('dotenv').config();
 const { Client, GatewayIntentBits, ActivityType } = require('discord.js');
 const { 
@@ -12,15 +12,24 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const config = require('../bot.config');
-const voicePresets = require('./voice-presets');  // ⭐ NOVO
+const voicePresets = require('./voice-presets');
 const aiHandler = require('./gemini-handler');
+const CommandHandler = require('./commands');
+const moderation = require('./moderation');
+const cooldownManager = require('./cooldown');
 
-const TOKEN = process.env.DISCORD_BOT_TOKEN;
+// ✅ CORREÇÃO: Nome da variável padronizado
+const TOKEN = process.env.DISCORD_TOKEN || process.env.DISCORD_BOT_TOKEN;
 const PORT = process.env.DASHBOARD_PORT || 3001;
+const DASHBOARD_PASSWORD = process.env.DASHBOARD_PASSWORD;
 
 if (!TOKEN) {
-  console.error('❌ DISCORD_BOT_TOKEN não encontrado no .env!');
+  console.error('❌ DISCORD_TOKEN não encontrado no .env!');
   process.exit(1);
+}
+
+if (!DASHBOARD_PASSWORD) {
+  console.warn('⚠️ DASHBOARD_PASSWORD não configurado - Dashboard sem autenticação!');
 }
 
 const client = new Client({
@@ -39,7 +48,7 @@ const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' })); // ✅ Limite de payload
 app.use(express.static('dashboard/public'));
 
 let state = {
@@ -53,14 +62,58 @@ let state = {
     reactionsAdded: 0,
     voiceJoins: 0,
     aiResponsesGenerated: 0,
-    audioPresetsPlayed: 0  // ⭐ NOVO
+    audioPresetsPlayed: 0
   }
 };
+
+// Inicializar sistema de comandos
+const commandHandler = new CommandHandler(client);
+
+// ======================
+// 🔐 MIDDLEWARE DE AUTENTICAÇÃO
+// ======================
+function authMiddleware(req, res, next) {
+  if (!DASHBOARD_PASSWORD) {
+    return next(); // Sem senha configurada, permite acesso
+  }
+  
+  const authHeader = req.headers.authorization;
+  if (!authHeader || authHeader !== `Bearer ${DASHBOARD_PASSWORD}`) {
+    return res.status(401).json({ error: 'Não autorizado' });
+  }
+  
+  next();
+}
+
+// ======================
+// ✅ VALIDAÇÃO DE ENTRADA
+// ======================
+function validateChannelId(channelId) {
+  if (!channelId || typeof channelId !== 'string') {
+    throw new Error('ID de canal inválido');
+  }
+  if (!/^\d{17,19}$/.test(channelId)) {
+    throw new Error('Formato de ID de canal inválido');
+  }
+  return true;
+}
+
+function validateMessageText(text) {
+  if (!text || typeof text !== 'string') {
+    throw new Error('Texto inválido');
+  }
+  if (text.length > 2000) {
+    throw new Error('Texto muito longo (máximo 2000 caracteres)');
+  }
+  // Remove tags HTML perigosas
+  const sanitized = text.replace(/<script[^>]*>.*?<\/script>/gi, '')
+                        .replace(/<iframe[^>]*>.*?<\/iframe>/gi, '');
+  return sanitized;
+}
 
 // ======================
 // UTILIDADES
 // ======================
-
 function randomDelay(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
@@ -77,7 +130,6 @@ async function simulateTyping(channel) {
 // ======================
 // 😊 REAÇÕES CONTEXTUAIS
 // ======================
-
 function getContextualReaction(message) {
   const content = message.content.toLowerCase();
   
@@ -107,10 +159,15 @@ function getContextualReaction(message) {
 // ======================
 // 🧠 SISTEMA DE RESPOSTA INTELIGENTE COM IA
 // ======================
-
 async function handleIntelligentResponse(message) {
   try {
     const content = message.content.toLowerCase();
+    
+    // ✅ Verifica cooldown
+    if (cooldownManager.isOnCooldown(message.author.id, message.channelId)) {
+      console.log('🕐 Usuário em cooldown');
+      return;
+    }
     
     const shouldRespond = decideShouldRespond(message, content);
     if (!shouldRespond) {
@@ -168,7 +225,6 @@ function decideShouldRespond(message, content) {
 // ======================
 // ENVIAR MENSAGEM
 // ======================
-
 async function sendMessage(channelId, text) {
   try {
     const channel = await client.channels.fetch(channelId);
@@ -197,10 +253,9 @@ async function sendMessage(channelId, text) {
 }
 
 // ======================
-// 🎤 VOICE - MUTADO, SEM TTS AUTOMÁTICO
+// 🎤 VOICE
 // ======================
-
-async function joinVoice(channelId, shouldSpeak = false) {  // ⭐ MUDOU: shouldSpeak = false
+async function joinVoice(channelId, shouldSpeak = false) {
   try {
     const channel = await client.channels.fetch(channelId);
     if (!channel || !channel.isVoiceBased()) {
@@ -215,7 +270,7 @@ async function joinVoice(channelId, shouldSpeak = false) {  // ⭐ MUDOU: should
       guildId: channel.guild.id,
       adapterCreator: channel.guild.voiceAdapterCreator,
       selfDeaf: false,
-      selfMute: true  // ⭐ MUDOU: agora entra mutado
+      selfMute: true
     });
     
     await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
@@ -244,7 +299,6 @@ function leaveVoice(guildId) {
   }
 }
 
-// ⭐ NOVA FUNÇÃO: Tocar preset de áudio
 async function playAudioPreset(presetId) {
   try {
     if (!state.currentVoiceChannel) {
@@ -271,12 +325,13 @@ async function playAudioPreset(presetId) {
 // ======================
 // EVENTOS DISCORD
 // ======================
-
 client.once('clientReady', async () => {
   console.log('✅ Bot conectado como:', client.user.tag);
   console.log('🎭 Personificando:', config.bot.name);
   console.log('🤖 Sistema de IA:', config.aiSystem.enabled ? 'ATIVADO' : 'DESATIVADO');
   console.log('🎵 Presets de áudio:', voicePresets.getPresets().length);
+  console.log('🛡️ Sistema de moderação:', 'ATIVO');
+  console.log('❄️ Sistema de cooldown:', 'ATIVO');
   
   const { status } = config.bot;
 
@@ -310,14 +365,36 @@ client.once('clientReady', async () => {
   
   io.emit('botReady', { ready: true, guild: state.currentGuild });
 
+  // ✅ Limpeza periódica de memória
   setInterval(() => {
     aiHandler.clearOldHistory();
-  }, 60000);
+    
+    // Limitar mensagens recentes (evita vazamento de memória)
+    const oneHourAgo = Date.now() - 3600000;
+    state.recentMessages = state.recentMessages
+      .filter(msg => msg.timestamp > oneHourAgo)
+      .slice(0, 50);
+    
+    console.log(`🧹 Limpeza: ${state.recentMessages.length} mensagens recentes`);
+  }, 300000); // A cada 5 minutos
 });
 
 client.on('messageCreate', async (message) => {
   if (message.author.id === client.user.id) return;
   if (message.author.bot) return;
+
+  // ✅ Sistema de comandos
+  if (message.content.startsWith('!')) {
+    await commandHandler.handle(message, state, moderation);
+    return;
+  }
+
+  // ✅ Sistema de moderação
+  const modCheck = moderation.shouldIgnoreMessage(message);
+  if (modCheck.shouldIgnore) {
+    console.log(`🚫 Mensagem ignorada: ${modCheck.reason}`);
+    return;
+  }
 
   state.recentMessages.unshift({
     id: message.id,
@@ -362,7 +439,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
     if (Math.random() < config.personality.voiceJoinChance) {
       const delay = randomDelay(5000, 30000);
       setTimeout(async () => {
-        await joinVoice(newState.channelId, false);  // ⭐ Não fala ao entrar
+        await joinVoice(newState.channelId, false);
       }, delay);
     }
   }
@@ -375,22 +452,32 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
   }
 });
 
-// ======================
-// API REST
-// ======================
+// ✅ Tratamento global de erros
+process.on('unhandledRejection', (error) => {
+  console.error('❌ Unhandled Rejection:', error);
+});
 
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', error);
+});
+
+// ======================
+// 🌐 API REST (COM AUTENTICAÇÃO)
+// ======================
 app.get('/api/status', (req, res) => {
   res.json({
     online: state.isOnline,
     bot: { username: client.user?.username, id: client.user?.id, ...config.bot },
     guild: state.currentGuild,
     stats: state.stats,
-    aiEnabled: config.aiSystem.enabled
+    aiEnabled: config.aiSystem.enabled,
+    moderation: moderation.getStats(),
+    cooldown: cooldownManager.getStats()
   });
 });
 
 app.get('/api/messages', (req, res) => {
-  res.json({ messages: state.recentMessages });
+  res.json({ messages: state.recentMessages.slice(0, 30) }); // ✅ Limita a 30
 });
 
 app.get('/api/channels', async (req, res) => {
@@ -421,12 +508,18 @@ app.get('/api/voice-channels', async (req, res) => {
   }
 });
 
-app.post('/api/voice/join', async (req, res) => {
-  const result = await joinVoice(req.body.channelId, false);  // ⭐ Sem fala automática
-  res.json(result);
+// ✅ Rotas protegidas com autenticação
+app.post('/api/voice/join', authMiddleware, async (req, res) => {
+  try {
+    validateChannelId(req.body.channelId);
+    const result = await joinVoice(req.body.channelId, false);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
 });
 
-app.post('/api/voice/leave', async (req, res) => {
+app.post('/api/voice/leave', authMiddleware, async (req, res) => {
   if (!state.currentGuild) return res.status(400).json({ error: 'Não está em nenhum servidor' });
   const result = leaveVoice(state.currentGuild.id);
   res.json(result);
@@ -436,48 +529,65 @@ app.get('/api/voice/status', (req, res) => {
   res.json({ inVoice: state.currentVoiceChannel !== null, channel: state.currentVoiceChannel });
 });
 
-// ⭐ NOVA ROTA: Listar presets disponíveis
 app.get('/api/voice/presets', (req, res) => {
   const presets = voicePresets.getPresets();
   res.json({ presets });
 });
 
-// ⭐ NOVA ROTA: Tocar preset
-app.post('/api/voice/play-preset', async (req, res) => {
+app.post('/api/voice/play-preset', authMiddleware, async (req, res) => {
   if (!req.body.presetId) return res.status(400).json({ error: 'presetId é obrigatório' });
   const result = await playAudioPreset(req.body.presetId);
   res.json(result);
 });
 
-// ⭐ ROTA REMOVIDA: /api/voice/speak (TTS manual)
-// ⭐ ROTA REMOVIDA: /api/voice/stop (não precisa mais)
-
-app.post('/api/send', async (req, res) => {
-  const { channelId, text } = req.body;
-  if (!channelId || !text) return res.status(400).json({ error: 'channelId e text são obrigatórios' });
-  const result = await sendMessage(channelId, text);
-  res.json(result);
+app.post('/api/send', authMiddleware, async (req, res) => {
+  try {
+    const { channelId, text } = req.body;
+    
+    if (!channelId || !text) {
+      return res.status(400).json({ error: 'channelId e text são obrigatórios' });
+    }
+    
+    validateChannelId(channelId);
+    const sanitizedText = validateMessageText(text);
+    
+    const result = await sendMessage(channelId, sanitizedText);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
 });
 
 // ======================
 // WEBSOCKET
 // ======================
-
 io.on('connection', (socket) => {
   console.log('📱 Dashboard conectado');
+  
   socket.on('sendMessage', async (data) => {
-    const result = await sendMessage(data.channelId, data.text);
-    socket.emit('messageSent', result);
+    try {
+      validateChannelId(data.channelId);
+      const sanitizedText = validateMessageText(data.text);
+      const result = await sendMessage(data.channelId, sanitizedText);
+      socket.emit('messageSent', result);
+    } catch (error) {
+      socket.emit('messageSent', { success: false, error: error.message });
+    }
   });
+  
   socket.on('disconnect', () => console.log('📱 Dashboard desconectado'));
 });
 
 // ======================
 // INICIAR
 // ======================
-
 server.listen(PORT, () => {
   console.log(`🌐 Dashboard rodando em http://localhost:${PORT}`);
+  if (DASHBOARD_PASSWORD) {
+    console.log('🔐 Dashboard protegido com senha');
+  } else {
+    console.warn('⚠️ Dashboard SEM proteção de senha!');
+  }
 });
 
 client.login(TOKEN).catch(error => {
