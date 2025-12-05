@@ -253,7 +253,7 @@ node --version
 
 ## 📝 Changelog
 
-### v2.0.0 (2025-01-XX)
+### v2.0.0 (2025-12-05)
 - ✅ Sistema de moderação anti-spam
 - ✅ Cooldown por usuário/canal
 - ✅ Comandos administrativos
@@ -263,7 +263,7 @@ node --version
 - ✅ Melhorias de performance
 - ✅ Correção de vazamento de memória
 
-### v1.0.0 (2024-XX-XX)
+### v1.0.0 (2025-11-17)
 - 🎉 Lançamento inicial
 - 🤖 Integração com Google Gemini
 - 🎤 Sistema de voz
