@@ -291,10 +291,10 @@ Este bot é apenas para fins educacionais e de entretenimento. Use com responsab
 
 ## 📞 Suporte
 
-- 🐛 Issues: [GitHub Issues](https://github.com/seu-usuario/discord-bot/issues)
+- 🐛 Issues: [GitHub Issues](https://github.com/Fish7w7/Discord-Bot/issues)
 - 💬 Discord: [Servidor de Suporte](#)
-- 📧 Email: seu@email.com
+- 📧 Email: Gale1821Lee@gmail.com
 
 ---
 
-**Feito com ❤️ por [Seu Nome]**
+**Feito com ❤️ por [GaLe]**
